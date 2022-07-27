@@ -2,7 +2,8 @@
 
 
 /**
- * Led P1.0 (ativo-alto) imita estado do botao P2.1 (pressionado P2.1 = 0)
+ * Led P1.0 (ativo-alto) imita estado do botao P2.1 (pressionado P2.1 = 0).
+ * Ao pressionar S1 o Led1 acende, ao soltar apaga.
  */
 
 int IOconfig(void) {
