@@ -1,0 +1,9 @@
+# ignore project configuration folders
+.settings/
+.launches/
+Debug/
+targetConfigs/
+*.cmd
+*.ccsproject
+*.cproject
+*.project
