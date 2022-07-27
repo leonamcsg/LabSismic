@@ -35,8 +35,10 @@ int main(void) {
     IOconfig();                         // Configura pinos de entrada e saida
 
     for(;;) {
-        BTnew1 = (P2IN & BIT1);         // Estado atual do botao em BTnew
-        BTnew2 = (P1IN & BIT1);
+
+        BTnew1 = (P1IN & BIT1);         // Estado atual do botao em BTnew
+        BTnew2 = (P2IN & BIT1);
+
 
         // Botao 1 = S1
         if( BTnew1 != 0) {              // Botao solto.
