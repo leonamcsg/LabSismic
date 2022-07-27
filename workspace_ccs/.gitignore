@@ -1,0 +1,5 @@
+# ignore all workspace folders
+.jxbrowser.userdata/
+.metadata/
+dvt/
+RemoteSystemsTempFiles/
