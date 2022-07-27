@@ -2,7 +2,7 @@
 
 
 /**
- * main.c
+ * Led P1.0 (ativo-alto) imita estado do botao P2.1 (pressionado P2.1 = 0)
  */
 
 int IOconfig(void) {
