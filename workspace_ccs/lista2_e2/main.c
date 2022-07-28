@@ -13,6 +13,7 @@ int IOconfig(void) {
     P2DIR &= ~(BIT1);           // pino P2.1 como entrada
     P2REN |= (BIT1);            // habilita resistor
     P2OUT |= (BIT1);            // resistor pull-up
+
     return 0;
 }
 
