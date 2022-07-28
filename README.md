@@ -1,2 +1,2 @@
 # LabSismic
-Lista de exercícios 2 e visto 2, Laboratório de Sistemas Microprocessados
+Lista de exercícios, vistos e trabalho final da disciplina, Laboratório de Sistemas Microprocessados, 2022/1
