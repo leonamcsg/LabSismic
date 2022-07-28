@@ -25,13 +25,13 @@ int debounce(void) {
 }
 
 int main(void) {
-    WDTCTL = WDTPW | WDTHOLD;   // stop watchdog timer
+    WDTCTL = WDTPW | WDTHOLD;          // stop watchdog timer
 
     IOconfig();
 
     for(;;) {
         if((P2IN & BIT1) == 0) {
-            P1OUT ^= (BIT0);    // altera estado do led
+            P1OUT ^= (BIT0);           // altera estado do led
             debounce();
             while((P2IN & BIT1) == 0); // Caso botao nao tenha sido solto
             debounce();                // prende a execucao
