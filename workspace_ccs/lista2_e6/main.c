@@ -53,10 +53,11 @@ __interrupt void P2ISR() {
     switch (P2IV) {
         case 0x4:                       // P2.1 botao S1
             while(--delay_loops);       // Debouncing
-            if((P2IN & BIT1) == 0)      // Caso botao esteja pressionado
+            if((P2IN & BIT1) == 0) {    // Caso botao esteja pressionado
                 if((P4OUT & BIT7) == 0) // LED1 alterna de estado se LED2 = 0
                     P1OUT ^= BIT0;
                 P4OUT ^= BIT7;          // LED2 alterna de estado
+            }
         break;
         default: break;
     }
@@ -65,7 +66,7 @@ __interrupt void P2ISR() {
 // Rotina do Servico de interrupcao da porta 1
 #pragma vector = PORT1_VECTOR
 __interrupt void P1ISR() {
-    volatile uint16_t delay_loops = 1000; // MCLOCK em 1MHz, delay ~= 10ms
+    volatile uint16_t delay_loops = 1000; // MCLOCK em 1MHz, 1000*14/1Mhz ~= 140ms
     switch (P1IV) {
         case 0x4:                       // P1.1 botao S2
             while(--delay_loops);       // Debouncing
