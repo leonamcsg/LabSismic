@@ -52,43 +52,57 @@ void initTimerA0(void) {
     TA0CCTL1 = OUTMOD_7;                      // CCR1 reset/set
     TA0CCR1 = 10000 - 1;                      // CCR1 PWM duty cycle
     TA0CTL = TASSEL__SMCLK | MC__UP | TACLR;  // SMCLK, up mode, limpa TAR
+
+    TB0CCR0 = 0;                              // Inicialmente, para o timer
+    TB0CTL = TBSSEL__ACLK | MC__UP | TBCLR;   // ACLK, up mode, limpa TAR
 }
+
+//Timer ISR
+#pragma vector = TIMER0_B0_VECTOR
+__interrupt void Timer_B_CCR0_ISR(void) {
+    static const uint16_t step = 2000;  // 10% de CCR0 + 1 = 2000
+    if((P2IN & BIT1) == 0) {            // Caso botao S1 esteja pressionado
+        if(TA0CCR1 == 0) {
+            TA0CCR1 = step - 1;         // Caso zero, CCR1 = 1999
+        } else if(TA0CCR1 < TA0CCR0) {
+            TA0CCR1 += step;            // Aumenta CCR1 em 10% de CCR0 = 2000
+        }
+    }
+    if((P1IN & BIT1) == 0) {            // Caso botao S2 esteja pressionado
+        if(TA0CCR1 > step) {
+            TA0CCR1 -= step;            // Diminui CCR1 em 10% de CCR0 = 2000
+        } else if (TA0CCR1 == step - 1) {
+            TA0CCR1 = 0;                // Caso 1999, CCR1 = 0
+        }
+    }
+    TB0CCTL0 &= ~CCIE;                  // Desabilita timerB
+}
+
 
 // Rotina do Servico de interrupcao da porta 2
 #pragma vector = PORT2_VECTOR
 __interrupt void P2ISR() {
-    volatile uint16_t debounce = 10000;
-    static const uint16_t step = 2000;     // 10% de CCR0 + 1 = 2000
+    volatile uint16_t debounce = 328;
     switch (P2IV) {
         case 0x4:                          // P2.1 botao S1
-            while(--debounce);
-            if((P2IN & BIT1) == 0) {       // Caso botao esteja pressionado
-                if(TA0CCR1 == 0) {
-                    TA0CCR1 = step - 1;    // Caso zero, CCR1 = 1999
-                } else if(TA0CCR1 < TA0CCR0) {
-                    TA0CCR1 += step;       // Aumenta CCR1 em 2000 contagens
-                }
-            }
+            TB0CCTL0 |= CCIE;              // Habilita TimerB
+            TB0CCR0 = debounce;            // Adiciona ~10ms de debounce
+            TB0CCTL0 &= ~CCIFG;            // Limpa flags de interrupcao
         break;
-        default: break;
+        default:
+            break;
     }
 }
 
 // Rotina do Servico de interrupcao da porta 1
 #pragma vector = PORT1_VECTOR
 __interrupt void P1ISR() {
-    volatile uint16_t debounce = 10000;
-    static const uint16_t step = 2000;     // 10% de CCR0 + 1 = 2000
+    volatile uint16_t debounce = 328;
     switch (P1IV) {
         case 0x4:                          // P1.1 botao S2
-            while(--debounce);
-            if((P1IN & BIT1) == 0) {       // Caso botao esteja pressionado
-                if(TA0CCR1 > step) {
-                    TA0CCR1 -= step;       // Diminui CCR1 em 10% de CCR0
-                } else if (TA0CCR1 == step - 1) {
-                    TA0CCR1 = 0;           // Caso 1999, CCR1 = 0
-                }
-            }
+            TB0CCTL0 |= CCIE;              // Habilita TimerB
+            TB0CCR0 = debounce;            // Adiciona ~10ms de debounce
+            TB0CCTL0 &= ~CCIFG;            // Limpa flags de interrupcao
         break;
         default: break;
     }
