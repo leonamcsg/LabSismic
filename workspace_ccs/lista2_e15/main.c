@@ -5,7 +5,8 @@
  * Leonam C. S. Gomes, 2022
  *
  * Gerando PWM de 50Hz em TA0.1, com T0 = CCR0 e DC = CCR1.
- * Com DC regulavel por S1 e S2.Timer a partir de SMCLOCK 1Mhrz, CCR0 = 20000,
+ * Com DC regulavel por S1 e S2, dentro do intervalo 0,5ms - 2,5ms.
+ * Timer a partir de SMCLOCK 1Mhrz, CCR0 = 20000,
  * T0 = 20ms, ciclo de trabalho regulavel, modo reset/set.
  *
  */
@@ -15,13 +16,13 @@ void IOconfig(void);
 void initTimerA0(void);
 
 int main(void) {
-    WDTCTL = WDTPW | WDTHOLD;                 // Para WDT
+    WDTCTL = WDTPW | WDTHOLD;               // Para WDT
 
-    IOconfig();                               // Configura pinos de entrada e saida
+    IOconfig();                             // Configura pinos de entrada e saida
     initTimerA0();
-    __enable_interrupt();                     // Habilita interrupcoes, GIE bit em SR
+    __enable_interrupt();                   // Habilita interrupcoes, GIE bit em SR
 
-    __bis_SR_register(LPM0_bits);             // Modo de baixo consumo
+    __bis_SR_register(LPM0_bits);           // Modo de baixo consumo
     __no_operation();
 }
 
@@ -48,31 +49,29 @@ void IOconfig(void) {
 }
 
 void initTimerA0(void) {
-    TA0CCR0 = 20000 - 1;                      // PWM periodo
-    TA0CCTL1 = OUTMOD_7;                      // CCR1 reset/set
-    TA0CCR1 = 10000 - 1;                      // CCR1 PWM duty cycle
+    TA0CCR0 = 20000 - 1;                    // PWM periodo
+    TA0CCTL1 = OUTMOD_7;                    // CCR1 reset/set
+    TA0CCR1 = 1500 - 1;                     // CCR1 PWM duty cycle
     TA0CTL = TASSEL__SMCLK | MC__UP | TACLR;  // SMCLK, up mode, limpa TAR
 
-    TB0CCR0 = 0;                              // Inicialmente, para o timer
+    TB0CCR0 = 0;                            // Inicialmente, para o timer
     TB0CTL = TBSSEL__ACLK | MC__UP | TBCLR;   // ACLK, up mode, limpa TAR
 }
 
 //Timer ISR
 #pragma vector = TIMER0_B0_VECTOR
 __interrupt void Timer_B_CCR0_ISR(void) {
-    static const uint16_t step = 2000;  // 10% de CCR0 + 1 = 2000
+    static const uint16_t step = 100;   // 10% de CCR0 + 1 = 100 = 0,1ms
+    static const uint16_t uplimit = 2500;
+    static const uint16_t lowlimit = 500;
     if((P2IN & BIT1) == 0) {            // Caso botao S1 esteja pressionado
-        if(TA0CCR1 == 0) {
-            TA0CCR1 = step - 1;         // Caso zero, CCR1 = 1999
-        } else if(TA0CCR1 < TA0CCR0) {
-            TA0CCR1 += step;            // Aumenta CCR1 em 10% de CCR0 = 2000
+        if(TA0CCR1 < uplimit - 1) {
+            TA0CCR1 += step;            // Aumenta CCR1 em 0,5% de CCR0 = 100
         }
     }
     if((P1IN & BIT1) == 0) {            // Caso botao S2 esteja pressionado
-        if(TA0CCR1 > step) {
-            TA0CCR1 -= step;            // Diminui CCR1 em 10% de CCR0 = 2000
-        } else if (TA0CCR1 == step - 1) {
-            TA0CCR1 = 0;                // Caso 1999, CCR1 = 0
+        if(TA0CCR1 > lowlimit) {        // ccr1 > 500
+            TA0CCR1 -= step;            // Diminui CCR1 em 0,5% de CCR0 = 100
         }
     }
     TB0CCTL0 &= ~CCIE;                  // Desabilita timerB
@@ -84,10 +83,10 @@ __interrupt void Timer_B_CCR0_ISR(void) {
 __interrupt void P2ISR() {
     volatile uint16_t debounce = 328;
     switch (P2IV) {
-        case 0x4:                          // P2.1 botao S1
-            TB0CCTL0 |= CCIE;              // Habilita TimerB
-            TB0CCR0 = debounce;            // Adiciona ~10ms de debounce
-            TB0CCTL0 &= ~CCIFG;            // Limpa flags de interrupcao
+        case 0x4:                       // P2.1 botao S1
+            TB0CCTL0 |= CCIE;           // Habilita TimerB
+            TB0CCR0 = debounce;         // Adiciona ~10ms de debounce
+            TB0CCTL0 &= ~CCIFG;         // Limpa flags de interrupcao
         break;
         default:
             break;
@@ -99,10 +98,10 @@ __interrupt void P2ISR() {
 __interrupt void P1ISR() {
     volatile uint16_t debounce = 328;
     switch (P1IV) {
-        case 0x4:                          // P1.1 botao S2
-            TB0CCTL0 |= CCIE;              // Habilita TimerB
-            TB0CCR0 = debounce;            // Adiciona ~10ms de debounce
-            TB0CCTL0 &= ~CCIFG;            // Limpa flags de interrupcao
+        case 0x4:                       // P1.1 botao S2
+            TB0CCTL0 |= CCIE;           // Habilita TimerB
+            TB0CCR0 = debounce;         // Adiciona ~10ms de debounce
+            TB0CCTL0 &= ~CCIFG;         // Limpa flags de interrupcao
         break;
         default: break;
     }
