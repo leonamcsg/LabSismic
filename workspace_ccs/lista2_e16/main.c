@@ -13,24 +13,29 @@
 
 void IOconfig(void);
 
-void initTimerA0(void);
+void initTimers(void);
 
 int main(void) {
     WDTCTL = WDTPW | WDTHOLD;               // Para WDT
 
     IOconfig();                             // Configura pinos de entrada e saida
-    initTimerA0();
+    initTimers();                           // Inicia temporizadores
     __enable_interrupt();                   // Habilita interrupcoes, GIE bit em SR
+
+    TB0CCTL0 |= CCIE;
+    TB0CCR0 = 0;
+    TB0CCTL0 &= ~CCIFG;
 
     __bis_SR_register(LPM0_bits);           // Modo de baixo consumo
     __no_operation();
 }
 
 void IOconfig(void) {
-    P1DIR |= BIT2;              // P1.2 como saida
+    P4DIR |= BIT7;              // P4.7 como saida
+    P1DIR |= BIT2 | BIT0;       // P1.2 e P1.0(LED1) como saida
     P1SEL |= BIT2;              // Seleciona P1.2 como saida PWM
 
-    P1DIR &= ~(BIT1);           // pino P1.1 como entrada
+    P1DIR &= ~(BIT1);           // Pino P1.1 como entrada
     P1REN |= (BIT1);            // habilita resistor
     P1OUT |= (BIT1);            // resistor pull-up
 
@@ -45,28 +50,27 @@ void IOconfig(void) {
     P2IE  |= (BIT1);            // P2.1 interrupcao habilitada
     P2IES |= (BIT1);            // P2.1 Hi/lo edge
     P2IFG &= ~(BIT1);           // P2.1 IFG = 0
-
 }
 
-void initTimerA0(void) {
-    TA0CCR0 = 20000 - 1;                    // PWM periodo
-    TA0CCTL1 = OUTMOD_7;                    // CCR1 reset/set
-    TA0CCR1 = 1500 - 1;                     // CCR1 PWM duty cycle
+void initTimers(void) {
+    TA0CCR0 = 20000 - 1;                      // PWM periodo
+    TA0CCTL1 = OUTMOD_7;                      // CCR1 reset/set
+    TA0CCR1 = 1499 - 1;                       // CCR1 PWM duty cycle
     TA0CTL = TASSEL__SMCLK | MC__UP | TACLR;  // SMCLK, up mode, limpa TAR
 
-    TB0CCR0 = 0;                            // Inicialmente, para o timer
     TB0CTL = TBSSEL__ACLK | MC__UP | TBCLR;   // ACLK, up mode, limpa TAR
 }
 
 //Timer ISR
 #pragma vector = TIMER0_B0_VECTOR
 __interrupt void Timer_B_CCR0_ISR(void) {
-    static const uint16_t step = 111;     // 2000/18 = 111 ~ 9,99 graus
+    static const uint16_t step = 111;         // 2000/18 = 111, ~9,99 graus
     static const uint16_t uplimit = 2498 - 1; // ~180 gaus
     static const uint16_t lowlimit = 500 - 1; //  0 graus
+
     if((P2IN & BIT1) == 0) {            // Caso botao S1 esteja pressionado
         if(TA0CCR1 < uplimit) {         // Caso CCR1 maior que limite superior
-            TA0CCR1 += step;            // Aumenta CCR1 em 10 graus
+            TA0CCR1 += step;            // Aumenta CCR1 em ~10 graus
         } else if (TA0CCR1 > uplimit) {
             TA0CCR1 = uplimit;          // Limitando maior valor de CCR1
         }
@@ -78,9 +82,26 @@ __interrupt void Timer_B_CCR0_ISR(void) {
             TA0CCR1 = lowlimit;         // Limitando menor valor de CCR1
         }
     }
+
+    //Leds
+    switch(TA0CCR1) {
+    case 500 - 1:
+        P1OUT |= BIT0;    // Liga Led1
+        P4OUT &= ~BIT7;   // Desliga Led2
+        break;
+    case 2498 - 1:        // Limite superior
+        P1OUT &= ~BIT0;   // Desliga Led1
+        P4OUT |= BIT7;    // Liga Led2
+        break;
+    case 1499 - 1:
+        P1OUT |= BIT0;    // Liga Led1
+        P4OUT |= BIT7;    // Liga Led2
+        break;
+    default:
+        break;
+    }
     TB0CCTL0 &= ~CCIE;                  // Desabilita timerB
 }
-
 
 // Rotina do Servico de interrupcao da porta 2
 #pragma vector = PORT2_VECTOR
@@ -91,6 +112,7 @@ __interrupt void P2ISR() {
             TB0CCTL0 |= CCIE;           // Habilita TimerB
             TB0CCR0 = debounce;         // Adiciona ~10ms de debounce
             TB0CCTL0 &= ~CCIFG;         // Limpa flags de interrupcao
+            TB0CTL |= TBCLR;            // Zera contador
         break;
         default:
             break;
@@ -106,6 +128,7 @@ __interrupt void P1ISR() {
             TB0CCTL0 |= CCIE;           // Habilita TimerB
             TB0CCR0 = debounce;         // Adiciona ~10ms de debounce
             TB0CCTL0 &= ~CCIFG;         // Limpa flags de interrupcao
+            TB0CTL |= TBCLR;            // Zera contador
         break;
         default: break;
     }

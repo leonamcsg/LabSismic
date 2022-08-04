@@ -7,6 +7,35 @@
  * e decrementado por S1
  */
 
+volatile uint16_t lasts1 = 1;
+volatile uint16_t lasts2 = 1;
+volatile uint16_t s1request = 0;
+volatile uint16_t s2request = 0;
+
+void initTimers(void);
+
+int IOconfig(void);
+
+int main(void) {
+    WDTCTL = WDTPW | WDTHOLD;           // stop watchdog timer
+
+    IOconfig();                         // Configura pinos de entrada e saida
+    initTimers();
+
+    __enable_interrupt();               // Habilita interrupcoes, GIE bit em SR
+
+    for(;;) {                           // Loop principal
+    }
+
+}
+
+void initTimers(void) {
+    TB0CTL = TBSSEL__ACLK | MC__UP | TBCLR;   // ACLK, up mode, limpa TAR
+    TB0CCTL0 &= ~CCIE;
+    TB0CCR0 = 0;
+    TB0CCTL0 &= ~CCIFG;
+}
+
 int IOconfig(void) {
     P1OUT &= ~(BIT0);           // inicia led desligado (ativo-alto)
     P1DIR |= (BIT0);            // pino P1.0 como saida
@@ -33,31 +62,60 @@ int IOconfig(void) {
     return 0;
 }
 
-int main(void) {
-    WDTCTL = WDTPW | WDTHOLD;           // stop watchdog timer
+//Timer ISR
+#pragma vector = TIMER0_B0_VECTOR
+__interrupt void Timer_B_CCR0_ISR(void) {
+    volatile uint16_t s2 = (P1IN & BIT1);
+    volatile uint16_t s1 = (P2IN & BIT1);
 
-    IOconfig();                         // Configura pinos de entrada e saida
-
-    __enable_interrupt();               // Habilita interrupcoes, GIE bit em SR
-
-    for(;;) {                           // Loop principal
+    if (s2request) {
+        if(s2 == 0) {                 // Caso botao esteja pressionado
+           if((~P4OUT & BIT7) == 0)   // LED1 alterna de estado se LED2 = 1
+               P1OUT ^= BIT0;
+           P4OUT ^= BIT7;             // LED2 alterna de estado
+           lasts2 = 0;
+        } else {                      // Botao solto mas houve interrupcao
+            if(lasts2 == 1) {         // Estava solto antes da interrupcao
+                if((~P4OUT & BIT7) == 0) // LED1 alterna de estado se LED2 = 1
+                   P1OUT ^= BIT0;
+                P4OUT ^= BIT7;          // LED2 alterna de estado
+            }
+           lasts2 = 1;
+        }
+        s2request = 0;
     }
 
-    return 0;
-}
-
-// Rotina do Servico de interrupcao da porta 2
-#pragma vector = PORT2_VECTOR
-__interrupt void P2ISR() {
-    volatile uint16_t delay_loops = 1000; // MCLOCK em 1MHz, delay ~= 10ms
-    switch (P2IV) {
-        case 0x4:                       // P2.1 botao S1
-            while(--delay_loops);       // Debouncing
-            if((P2IN & BIT1) == 0) {    // Caso botao esteja pressionado
+    if (s1request) {                // S1 causou interrupcao
+        if(s1 == 0) {               // Caso botao esteja pressionado
+            if((P4OUT & BIT7) == 0) // LED1 alterna de estado se LED2 = 0
+                P1OUT ^= BIT0;
+            P4OUT ^= BIT7;          // LED2 alterna de estado
+            lasts1 = 0;
+        } else {                    // Botao solto mas houve interrupcao
+            if(lasts1 == 1) {         // Estava solto antes da interrupcao
                 if((P4OUT & BIT7) == 0) // LED1 alterna de estado se LED2 = 0
                     P1OUT ^= BIT0;
                 P4OUT ^= BIT7;          // LED2 alterna de estado
             }
+            lasts2 = 1;
+        }
+        s1request = 0;
+    }
+    TB0CCTL0 &= ~CCIE;          // Desabilita timerB
+}
+
+
+// Rotina do Servico de interrupcao da porta 2
+#pragma vector = PORT2_VECTOR
+__interrupt void P2ISR() {
+    volatile uint16_t debounce = 328;  // MCLOCK em 1MHz, delay ~= 10ms
+    switch (P2IV) {
+        case 0x4:                       // P2.1 botao S1
+            TB0CCTL0 |= CCIE;           // Habilita TimerB
+            TB0CCR0 = debounce;         // Adiciona ~10ms de debounce
+            TB0CCTL0 &= ~CCIFG;         // Limpa flags de interrupcao
+            TB0CTL |= TBCLR;            // Zera contador
+            s1request = 1;
         break;
         default: break;
     }
@@ -66,18 +124,15 @@ __interrupt void P2ISR() {
 // Rotina do Servico de interrupcao da porta 1
 #pragma vector = PORT1_VECTOR
 __interrupt void P1ISR() {
-    volatile uint16_t delay_loops = 1000; // MCLOCK em 1MHz, 1000*14/1Mhz ~= 140ms
+    volatile uint16_t debounce = 328;  // MCLOCK em 1MHz, 1000/1Mhz ~= 10ms
     switch (P1IV) {
         case 0x4:                       // P1.1 botao S2
-            while(--delay_loops);       // Debouncing
-            if((P1IN & BIT1) == 0) {    // Caso botao esteja pressionado
-               if((~P4OUT & BIT7) == 0) // LED1 alterna de estado se LED2 = 1
-                   P1OUT ^= BIT0;
-                P4OUT ^= BIT7;          // LED2 alterna de estado
-            }
+            TB0CCTL0 |= CCIE;           // Habilita TimerB
+            TB0CCR0 = debounce;         // Adiciona ~10ms de debounce
+            TB0CCTL0 &= ~CCIFG;         // Limpa flags de interrupcao
+            TB0CTL |= TBCLR;            // Zera contador
+            s2request = 1;
         break;
         default: break;
     }
 }
-
-
