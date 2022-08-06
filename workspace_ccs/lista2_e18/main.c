@@ -24,8 +24,6 @@ int main(void) {
     initTimers();
 
     __enable_interrupt();               // Habilita interrupcoes, GIE bit em SR
-
-    __bis_SR_register(0xD8);            // Somente ACLK ligado
     __no_operation();                   // Aguarda interrupcao
 
 }
@@ -46,7 +44,6 @@ void initTimers(void) {
                 CM_3;         // Captura na subida e descida do clk
 
     TA1CCTL2 &= ~CCIFG;       // Limpa flag de interrupcao
-
 }
 
 void IOconfig(void) {
