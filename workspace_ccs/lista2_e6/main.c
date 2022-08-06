@@ -97,7 +97,7 @@ __interrupt void Timer_B_CCR0_ISR(void) {
                     P1OUT ^= BIT0;
                 P4OUT ^= BIT7;          // LED2 alterna de estado
             }
-            lasts2 = 1;
+            lasts1 = 1;
         }
         s1request = 0;
     }
@@ -108,7 +108,7 @@ __interrupt void Timer_B_CCR0_ISR(void) {
 // Rotina do Servico de interrupcao da porta 2
 #pragma vector = PORT2_VECTOR
 __interrupt void P2ISR() {
-    volatile uint16_t debounce = 328;  // MCLOCK em 1MHz, delay ~= 10ms
+    volatile uint16_t debounce = 328;  // ACLOCK em 32768MHz, delay ~= 10ms
     switch (P2IV) {
         case 0x4:                       // P2.1 botao S1
             TB0CCTL0 |= CCIE;           // Habilita TimerB
@@ -124,7 +124,7 @@ __interrupt void P2ISR() {
 // Rotina do Servico de interrupcao da porta 1
 #pragma vector = PORT1_VECTOR
 __interrupt void P1ISR() {
-    volatile uint16_t debounce = 328;  // MCLOCK em 1MHz, 1000/1Mhz ~= 10ms
+    volatile uint16_t debounce = 328;  // ACLOCK em 32768MHz, delay ~= 10ms
     switch (P1IV) {
         case 0x4:                       // P1.1 botao S2
             TB0CCTL0 |= CCIE;           // Habilita TimerB
