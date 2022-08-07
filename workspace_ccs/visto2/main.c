@@ -1,8 +1,9 @@
-// Autor: Leonam Christian Silva Gomes, Matr.: 190043318
+// Aluno: Leonam Christian Silva Gomes, Matr.: 190043318, Universidade de Brasilia
 
 #include <msp430.h>
 #include <stdint.h>
 #include <intrinsics.h>
+
 /**
  * Sensor ultrassonico HC-SR04 com mostrador analogico utilizando
  * servo motor SG90 Tower Pro e led1 e led2.
@@ -11,7 +12,8 @@
  * P1.5 - Sinal "trigger" sensor ultrassonico
  * P2.0 - Sinal "echo" sensor ultrassonico
  */
-static const uint16_t lowlimit = 500 - 1; //  0 graus
+
+static const uint16_t lowlimit = 500 - 1;     //  0 graus
 static volatile uint16_t newdistance;
 static volatile uint16_t PRONTO = 0;
 
@@ -19,10 +21,8 @@ void IOconfig(void);
 
 void initTimers(void);
 
-
-
 int main(void) {
-    WDTCTL = WDTPW | WDTHOLD;               // Para WDT
+    WDTCTL = WDTPW | WDTHOLD;                 // Para WDT
 
     static const uint16_t uplimit = 2500 - 1; //  180 gaus
     static volatile uint16_t newTA1CCR1;
@@ -30,13 +30,13 @@ int main(void) {
     IOconfig();                             // Configura pinos de entrada e saida
     initTimers();                           // Inicia temporizadores
     __enable_interrupt();                   // Habilita interrupcoes, GIE bit em SR;
-    for(;;) {
 
+    for(;;) {
         while(!PRONTO);                     // Aguarda sinal de TA1CCR1
         PRONTO = 0;
 
-        newTA1CCR1 = newdistance / 1.45 + lowlimit;
-
+        newTA1CCR1 = newdistance / 1.45 + lowlimit; // Faz conversao para medidas do
+                                                    // mostrador analogico.
         // Atualiza PWM P2.5 com nova distancia
         if(newTA1CCR1 >= uplimit) {          // Caso TA1CCR1 maior que limite superior
             TA2CCR2 = uplimit;               // Limitando maior valor de TA2CCR2
@@ -45,18 +45,18 @@ int main(void) {
         }
 
         // LEDs
-        if(TA2CCR2 >= uplimit) {             // Maior que 2500
-            P1OUT &= ~BIT0;      // Desliga Led1
-            P4OUT &= ~BIT7;      // Desliga Led2
-        } else if (TA2CCR2 >= 1700 - 1) {    // Entre 2500 e 1700
-            P1OUT &= ~BIT0;      // Desliga Led1
-            P4OUT |= BIT7;       // Liga Led2
-        } else if (TA2CCR2 >= 900 - 1){      // Entre 900 e 1700
-            P1OUT |= BIT0;       // Liga Led1
-            P4OUT &= ~BIT7;      // Desliga Led2
-        } else {
-            P1OUT |= BIT0;       // Liga Led1
-            P4OUT |= BIT7;       // Liga Led2
+        if(TA2CCR2 >= uplimit) {             // Maior que 2500: ~50cm
+            P1OUT &= ~BIT0; // Desliga Led1
+            P4OUT &= ~BIT7; // Desliga Led2
+        } else if (TA2CCR2 >= 1700 - 1) {    // Entre 2500 e 1700: ~50cm - ~30cm
+            P1OUT &= ~BIT0; // Desliga Led1
+            P4OUT |= BIT7;  // Liga Led2
+        } else if (TA2CCR2 >= 900 - 1){      // Entre 900 e 1700: ~30cm - ~10cm
+            P1OUT |= BIT0;  // Liga Led1
+            P4OUT &= ~BIT7; // Desliga Led2
+        } else {                             // Menor que 900: ~10cm
+            P1OUT |= BIT0;  // Liga Led1
+            P4OUT |= BIT7;  // Liga Led2
         }
     }
 }
@@ -85,8 +85,8 @@ void initTimers(void) {
     TA2CTL = TASSEL__SMCLK | MC__UP | TACLR;  // SMCLK, up mode, limpa TAR
 
     // TimerA0 Sensor Ultrassonico, Trigger -> P1.5(PWM)
-    TA0CCR0 = 12000 - 1;                      // Periodo total, trigger-echo = 12ms
-    TA0CCR4 = 10  - 1;                        // Pulso trigger dura 10us
+    TA0CCR0 = 12000 - 1;                      // Periodo maximo, trigger-echo = 12ms
+    TA0CCR4 = 100  - 1;                       // Pulso trigger dura 100us (min - 10us)
     TA0CCTL4 |= OUTMOD_7;                     // Modo "set/reset"
 
     TA0CTL |= TASSEL__SMCLK |                 // SMCLK = 1Mhz
@@ -110,25 +110,14 @@ __interrupt void timerA1_TA1IV_ISR(void) {
     static volatile uint16_t count = 0;
     static volatile uint16_t lastcaptured = 0;
 
-    switch (TA1IV) {                          // Leitura limpa flag de interrupcao
-        case 0:
-            break;
-
-        case TA1IV_TA1CCR1:                   // Se CCR1 ativou interrupcao
-            if(count != 0) {                  // Conta subida e descida
-                PRONTO = 1;                   // Sinaliza processo para main()
-                count = 0;
-            } else {
-                count = 1;                    // Contagem
-            }
-            newdistance = TA1CCR1 - lastcaptured; // 0 a 12ms
-            lastcaptured = TA1CCR1;
-
-            TA1CCTL1 &= ~CCIFG;               // Limpa flag de interrupcao de CCR1
-            break;
-
-        default:
-            break;
+    if(count != 0) {                  // Conta subida e descida
+        PRONTO = 1;                   // Sinaliza processo para main()
+        count = 0;
+    } else {
+        count = 1;                    // Contagem
     }
-}
+    newdistance = TA1CCR1 - lastcaptured; // 0 a 12ms
+    lastcaptured = TA1CCR1;
 
+    TA1CCTL1 &= ~CCIFG;               // Limpa flag de interrupcao de CCR1
+}
