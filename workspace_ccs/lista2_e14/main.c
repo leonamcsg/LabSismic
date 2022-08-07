@@ -26,8 +26,8 @@ int main(void) {
 }
 
 void IOconfig(void) {
-    P1DIR |= BIT2;              // P1.2 como saida
-    P1SEL |= BIT2;              // Seleciona P1.2 como saida PWM
+    P2DIR |= BIT5;              // P2.5 como saida
+    P2SEL |= BIT5;              // Seleciona P2.5 como saida PWM
 
     P1DIR &= ~(BIT1);           // pino P1.1 como entrada
     P1REN |= (BIT1);            // habilita resistor
@@ -48,10 +48,10 @@ void IOconfig(void) {
 }
 
 void initTimerA0(void) {
-    TA0CCR0 = 20000 - 1;                      // PWM periodo
-    TA0CCTL1 = OUTMOD_7;                      // CCR1 reset/set
-    TA0CCR1 = 10000 - 1;                      // CCR1 PWM duty cycle
-    TA0CTL = TASSEL__SMCLK | MC__UP | TACLR;  // SMCLK, up mode, limpa TAR
+    TA2CCR0 = 20000 - 1;                      // PWM periodo
+    TA2CCTL2 = OUTMOD_7;                      // CCR1 reset/set
+    TA2CCR2 = 10000 - 1;                      // CCR1 PWM duty cycle
+    TA2CTL = TASSEL__SMCLK | MC__UP | TACLR;  // SMCLK, up mode, limpa TAR
 
     TB0CCR0 = 0;                              // Inicialmente, para o timer
     TB0CTL = TBSSEL__ACLK | MC__UP | TBCLR;   // ACLK, up mode, limpa TAR
@@ -62,17 +62,17 @@ void initTimerA0(void) {
 __interrupt void Timer_B_CCR0_ISR(void) {
     static const uint16_t step = 2000;  // 10% de CCR0 + 1 = 2000
     if((P2IN & BIT1) == 0) {            // Caso botao S1 esteja pressionado
-        if(TA0CCR1 == 0) {
-            TA0CCR1 = step - 1;         // Caso zero, CCR1 = 1999
-        } else if(TA0CCR1 < TA0CCR0) {
-            TA0CCR1 += step;            // Aumenta CCR1 em 10% de CCR0 = 2000
+        if(TA2CCR2 == 0) {
+            TA2CCR2 = step - 1;         // Caso zero, CCR1 = 1999
+        } else if(TA2CCR2 < TA2CCR0) {
+            TA2CCR2 += step;            // Aumenta CCR1 em 10% de CCR0 = 2000
         }
     }
     if((P1IN & BIT1) == 0) {            // Caso botao S2 esteja pressionado
-        if(TA0CCR1 > step) {
-            TA0CCR1 -= step;            // Diminui CCR1 em 10% de CCR0 = 2000
-        } else if (TA0CCR1 == step - 1) {
-            TA0CCR1 = 0;                // Caso 1999, CCR1 = 0
+        if(TA2CCR2 > step) {
+            TA2CCR2 -= step;            // Diminui CCR1 em 10% de CCR0 = 2000
+        } else if (TA2CCR2 == step - 1) {
+            TA2CCR2 = 0;                // Caso 1999, CCR1 = 0
         }
     }
     TB0CCTL0 &= ~CCIE;                  // Desabilita timerB
